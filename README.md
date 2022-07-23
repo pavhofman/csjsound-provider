@@ -1,4 +1,5 @@
 # csjsound-provider
+SPI javax.sound.sampled.spi.MixerProvider for csjsound dynamic libraries 
 
 
 Building:
