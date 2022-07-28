@@ -1,5 +1,8 @@
 package com.cleansine.sound.provider;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import javax.sound.sampled.Mixer;
@@ -9,7 +12,7 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 
 public final class SimpleMixerProvider extends MixerProvider {
-
+    private static final Logger logger = LoggerFactory.getLogger(SimpleMixerProvider.class);
     private static final String LIBRARY_NAME = "csjsound";
     private static boolean isNativeLibLoaded;
     // all access synchronized, no need for concurrent version
@@ -22,8 +25,12 @@ public final class SimpleMixerProvider extends MixerProvider {
         try {
             String lib = LIBRARY_NAME + "_" + System.getProperty("os.arch");
             System.loadLibrary(lib);
+            if (!nInit()) {
+                throw new Exception("Initializing " + lib + " failed");
+            }
         } catch (Throwable t) {
             isNativeLibLoaded = false;
+            logger.error("Error loading dynlib:" + t);
         }
     }
 
@@ -84,6 +91,11 @@ public final class SimpleMixerProvider extends MixerProvider {
         }
         return mixer;
     }
+
+    /**
+     * Must be called only once!
+     */
+    private static native boolean nInit();
 
     // count or -1 when error
     private static native int nGetMixerCnt();
