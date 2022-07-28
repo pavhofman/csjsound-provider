@@ -302,7 +302,8 @@ final class SimpleMixer extends SimpleLine implements Mixer {
     static native void nStop(long nativePtr, boolean isSource);
 
     /**
-     * returns pointer to native struct holding state
+     * @return pointer to native struct holding state or 0 (= NULL)
+     *
      */
     static native long nOpen(String deviceID, boolean isSource, int enc, int rate, int sampleSignBits,
                              int frameBytes, int channels, boolean signed, boolean bigEndian, int bufferBytes)
