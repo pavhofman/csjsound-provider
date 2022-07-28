@@ -9,7 +9,7 @@ abstract class SimpleDataLine extends SimpleLine implements DataLine {
     protected final String deviceID;
     protected final boolean isSource;
     protected AudioFormat format;
-    protected int bufferSize;
+    protected int bufferBytes;
     protected final Object lock = new Object();
     protected final Object lockNative = new Object();
     protected volatile boolean isRunning;
@@ -26,10 +26,10 @@ abstract class SimpleDataLine extends SimpleLine implements DataLine {
     protected volatile boolean isStarted;
     protected volatile boolean isActive;
 
-    protected SimpleDataLine(DataLine.Info info, SimpleMixer mixer, @Nonnull AudioFormat format, int bufferSize, String deviceID, boolean isSource) {
+    protected SimpleDataLine(DataLine.Info info, SimpleMixer mixer, @Nonnull AudioFormat format, int bufferBytes, String deviceID, boolean isSource) {
         super(info, mixer);
         this.format = format;
-        this.bufferSize = bufferSize;
+        this.bufferBytes = bufferBytes;
         this.deviceID = deviceID;
         this.checkTimeMS = 2;  // timeout to check whether all data have been read/written
         this.isSource = isSource;
@@ -122,7 +122,7 @@ abstract class SimpleDataLine extends SimpleLine implements DataLine {
 
     @Override
     public int getBufferSize() {
-        return bufferSize;
+        return bufferBytes;
     }
 
     @Override
@@ -152,7 +152,7 @@ abstract class SimpleDataLine extends SimpleLine implements DataLine {
     @Override
     public final void open() throws LineUnavailableException {
         // using current values, no change requrested
-        open(format, bufferSize);
+        open(format, bufferBytes);
     }
 
     @Override
@@ -172,35 +172,35 @@ abstract class SimpleDataLine extends SimpleLine implements DataLine {
         return (int) getLongFramePosition();
     }
 
-    void doOpen(AudioFormat format, int bufferSize) throws LineUnavailableException {
+    void doOpen(AudioFormat format, int bufferBytes) throws LineUnavailableException {
         if (!isPCMEncoding(format))
             throw new IllegalArgumentException("Unsupported encoding " + format.getEncoding() + ", only PCM is supported");
 
-        if (bufferSize <= AudioSystem.NOT_SPECIFIED) {
+        if (bufferBytes <= AudioSystem.NOT_SPECIFIED) {
             // setting default value
-            bufferSize = (int) ((long) DEFAULT_BUFFER_TIME_MS * format.getFrameRate() / 1000.0f * format.getFrameSize());
+            bufferBytes = (int) ((long) DEFAULT_BUFFER_TIME_MS * format.getFrameRate() / 1000.0f * format.getFrameSize());
             // aligning to frames
-            bufferSize = (bufferSize / format.getFrameSize()) * format.getFrameSize();
+            bufferBytes = (bufferBytes / format.getFrameSize()) * format.getFrameSize();
         }
         // aligning to frames
-        bufferSize = (bufferSize / format.getFrameSize()) * format.getFrameSize();
+        bufferBytes = (bufferBytes / format.getFrameSize()) * format.getFrameSize();
 
         hwFormat = format;
         boolean isSigned = hwFormat.getEncoding().equals(AudioFormat.Encoding.PCM_SIGNED);
         nativePtr = SimpleMixer.nOpen(deviceID, isSource, PCM_ENCODING, (int) hwFormat.getSampleRate(), hwFormat.getSampleSizeInBits(), hwFormat.getFrameSize(),
-                hwFormat.getChannels(), isSigned, hwFormat.isBigEndian(), bufferSize);
+                hwFormat.getChannels(), isSigned, hwFormat.isBigEndian(), bufferBytes);
 
-        if (nativePtr == 0) {
+        if (nativePtr <= 0) {
             throw new LineUnavailableException("line with format " + format + " not supported.");
         }
 
-        this.bufferSize = SimpleMixer.nGetBufferSize(nativePtr, isSource);
-        if (this.bufferSize < 1) {
+        this.bufferBytes = SimpleMixer.nGetBufferBytes(nativePtr, isSource);
+        if (this.bufferBytes < 1) {
             // this is an error!
-            this.bufferSize = bufferSize;
+            this.bufferBytes = bufferBytes;
         }
         this.format = format;
-        checkTimeMS = (int) ((long) this.bufferSize / format.getFrameRate() * 1000.0f / format.getFrameSize()) / 8;
+        checkTimeMS = (int) ((long) this.bufferBytes / format.getFrameRate() * 1000.0f / format.getFrameSize()) / 8;
         bytePos = 0;
         writtenWhenStopped = false;
         inIO = false;

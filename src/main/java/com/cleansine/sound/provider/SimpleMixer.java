@@ -305,7 +305,7 @@ final class SimpleMixer extends SimpleLine implements Mixer {
      * returns pointer to native struct holding state
      */
     static native long nOpen(String deviceID, boolean isSource, int enc, int rate, int sampleSignBits,
-                             int frameBytes, int channels, boolean signed, boolean bigEndian, int bufferSize)
+                             int frameBytes, int channels, boolean signed, boolean bigEndian, int bufferBytes)
             throws LineUnavailableException;
 
     static native void nClose(long nativePtr, boolean isSource);
@@ -314,7 +314,7 @@ final class SimpleMixer extends SimpleLine implements Mixer {
 
     static native int nWrite(long nativePtr, byte[] bytes, int offset, int len);
 
-    static native int nGetBufferSize(long nativePtr, boolean isSource);
+    static native int nGetBufferBytes(long nativePtr, boolean isSource);
 
     static native int nGetAvailBytes(long nativePtr, boolean isSource);
 

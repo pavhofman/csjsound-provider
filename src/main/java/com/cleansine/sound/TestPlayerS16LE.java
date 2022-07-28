@@ -39,9 +39,9 @@ public class TestPlayerS16LE {
             tLine.open(af, this.samplerate);
             tLine.start();
 
-            int bufferSize = sLine.getBufferSize();
+            int bufferBytes = sLine.getBufferSize();
             int frameBytes = af.getFrameSize();
-            int framesInWrite = bufferSize / frameBytes;
+            int framesInWrite = bufferBytes / frameBytes;
             double[] samples = what.getSamples(samplerate, length_ms);
 
             int toneIdx = 0;
