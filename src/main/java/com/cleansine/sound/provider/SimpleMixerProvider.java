@@ -24,6 +24,7 @@ public final class SimpleMixerProvider extends MixerProvider {
         isNativeLibLoaded = true;
         try {
             String lib = LIBRARY_NAME + "_" + System.getProperty("os.arch");
+            logger.debug("Loading dynlib " + lib);
             System.loadLibrary(lib);
             if (!nInit()) {
                 throw new Exception("Initializing " + lib + " failed");
