@@ -1,9 +1,17 @@
 package com.cleansine.sound.provider;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import javax.annotation.Nonnull;
-import javax.sound.sampled.*;
+import javax.sound.sampled.AudioFormat;
+import javax.sound.sampled.AudioSystem;
+import javax.sound.sampled.DataLine;
+import javax.sound.sampled.LineUnavailableException;
 
 abstract class SimpleDataLine extends SimpleLine implements DataLine {
+
+    private static final Logger logger = LoggerFactory.getLogger(SimpleSourceDataLine.class);
     protected static final int PCM_ENCODING = 0;
     private static final int DEFAULT_BUFFER_TIME_MS = 500;
     protected final String deviceID;
@@ -22,27 +30,33 @@ abstract class SimpleDataLine extends SimpleLine implements DataLine {
     // if a write operation occurred in stopped state
     protected volatile boolean writtenWhenStopped = false;
     protected volatile boolean drained = false; // set to true when drain function returns, set to false in write()
-    protected AudioFormat hwFormat;
     protected volatile boolean isStarted;
     protected volatile boolean isActive;
 
-    protected SimpleDataLine(DataLine.Info info, SimpleMixer mixer, @Nonnull AudioFormat format, int bufferBytes, String deviceID, boolean isSource) {
+    protected volatile boolean use24bits;
+
+    //protected FileOutputStream os = null;
+
+    protected SimpleDataLine(DataLine.Info info, SimpleMixer mixer, @Nonnull AudioFormat format, int bufferBytes, String deviceID, boolean isSource, boolean use24bits) {
         super(info, mixer);
         this.format = format;
         this.bufferBytes = bufferBytes;
         this.deviceID = deviceID;
         this.checkTimeMS = 2;  // timeout to check whether all data have been read/written
         this.isSource = isSource;
+        this.use24bits = use24bits;
     }
 
 
     public void open(@Nonnull AudioFormat format, int bufferSize) throws LineUnavailableException {
+        final AudioFormat hwFormat = determineHwFormat(format);
         //noinspection SynchronizeOnNonFinalField
         synchronized (mixer) {
             if (!isOpen()) {
                 mixer.openLine(this);
                 try {
-                    doOpen(format, bufferSize);
+                    doOpen(hwFormat, bufferSize);
+                    this.format = format;
                     setOpen(true);
                 } catch (LineUnavailableException e) {
                     mixer.closeLine(this);
@@ -56,6 +70,34 @@ abstract class SimpleDataLine extends SimpleLine implements DataLine {
                     throw new IllegalStateException("Line is already open with buffer size " + getBufferSize());
                 }
             }
+        }
+
+//        File file = new File("java.raw");
+//        try {
+//            file.createNewFile();
+//            this.os = new FileOutputStream(file);
+//        } catch (Exception e) {
+//            logger.error("Failed creating file", e);
+//        }
+    }
+
+
+    @Nonnull
+    private AudioFormat determineHwFormat(@Nonnull AudioFormat format) {
+        if (format.getSampleSizeInBits() == 32 && this.use24bits) {
+            // hardware needs 24 bits
+            AudioFormat hwFormat = new DistinctableAudioFormat(
+                    format.getEncoding(),
+                    format.getSampleRate(),
+                    24,
+                    format.getChannels(),
+                    format.getFrameSize(),
+                    format.isBigEndian()
+            );
+            logger.debug("Using original 24bit format " + hwFormat + " instead of the requested format " + format);
+            return hwFormat;
+        } else {
+            return format;
         }
     }
 
@@ -166,32 +208,36 @@ abstract class SimpleDataLine extends SimpleLine implements DataLine {
                 mixer.closeLine(this);
             }
         }
+        try {
+            //this.os.close();
+        } catch (Exception e) {
+            logger.error("Error closing stream", e);
+        }
     }
 
     public int getFramePosition() {
         return (int) getLongFramePosition();
     }
 
-    void doOpen(AudioFormat format, int bufferBytes) throws LineUnavailableException {
-        if (!isPCMEncoding(format))
-            throw new IllegalArgumentException("Unsupported encoding " + format.getEncoding() + ", only PCM is supported");
+    void doOpen(AudioFormat hwFormat, int bufferBytes) throws LineUnavailableException {
+        if (!isPCMEncoding(hwFormat))
+            throw new IllegalArgumentException("Unsupported encoding " + hwFormat.getEncoding() + ", only PCM is supported");
 
         if (bufferBytes <= AudioSystem.NOT_SPECIFIED) {
             // setting default value
-            bufferBytes = (int) ((long) DEFAULT_BUFFER_TIME_MS * format.getFrameRate() / 1000.0f * format.getFrameSize());
+            bufferBytes = (int) ((long) DEFAULT_BUFFER_TIME_MS * hwFormat.getFrameRate() / 1000.0f * hwFormat.getFrameSize());
             // aligning to frames
-            bufferBytes = (bufferBytes / format.getFrameSize()) * format.getFrameSize();
+            bufferBytes = (bufferBytes / hwFormat.getFrameSize()) * hwFormat.getFrameSize();
         }
         // aligning to frames
-        bufferBytes = (bufferBytes / format.getFrameSize()) * format.getFrameSize();
+        bufferBytes = (bufferBytes / hwFormat.getFrameSize()) * hwFormat.getFrameSize();
 
-        hwFormat = format;
         boolean isSigned = hwFormat.getEncoding().equals(AudioFormat.Encoding.PCM_SIGNED);
         nativePtr = SimpleMixer.nOpen(deviceID, isSource, PCM_ENCODING, (int) hwFormat.getSampleRate(), hwFormat.getSampleSizeInBits(), hwFormat.getFrameSize(),
                 hwFormat.getChannels(), isSigned, hwFormat.isBigEndian(), bufferBytes);
 
         if (nativePtr <= 0) {
-            throw new LineUnavailableException("line with format " + format + " not supported.");
+            throw new LineUnavailableException("line with hwFormat " + hwFormat + " not supported.");
         }
 
         this.bufferBytes = SimpleMixer.nGetBufferBytes(nativePtr, isSource);
@@ -199,8 +245,8 @@ abstract class SimpleDataLine extends SimpleLine implements DataLine {
             // this is an error!
             this.bufferBytes = bufferBytes;
         }
-        this.format = format;
-        checkTimeMS = (int) ((long) this.bufferBytes / format.getFrameRate() * 1000.0f / format.getFrameSize()) / 8;
+        // 1/8 of buffer time
+        checkTimeMS = (int) ((long) this.bufferBytes / hwFormat.getFrameRate() * 1000.0f / hwFormat.getFrameSize()) / 8;
         bytePos = 0;
         writtenWhenStopped = false;
         inIO = false;
@@ -253,12 +299,13 @@ abstract class SimpleDataLine extends SimpleLine implements DataLine {
         synchronized (lockNative) {
             a = SimpleMixer.nGetAvailBytes(nativePtr, isSource);
         }
+        logger.trace("Available: " + a + " bytes");
         return a;
     }
 
     @Override
     public void drain() {
-        if (nativePtr != 0   && inIO) {
+        if (nativePtr != 0 && inIO) {
             synchronized (lockNative) {
                 SimpleMixer.nDrain(nativePtr);
             }

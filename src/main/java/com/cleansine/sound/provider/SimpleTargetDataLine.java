@@ -1,13 +1,18 @@
 package com.cleansine.sound.provider;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import javax.sound.sampled.AudioFormat;
 import javax.sound.sampled.DataLine;
 import javax.sound.sampled.TargetDataLine;
 
 final class SimpleTargetDataLine extends SimpleDataLine implements TargetDataLine {
 
-    SimpleTargetDataLine(DataLine.Info info, AudioFormat format, int bufferSize, SimpleMixer mixer) {
-        super(info, mixer, format, bufferSize, mixer.getDeviceID(), false);
+    private static final Logger logger = LoggerFactory.getLogger(SimpleTargetDataLine.class);
+
+    SimpleTargetDataLine(DataLine.Info info, AudioFormat format, int bufferSize, SimpleMixer mixer, boolean use24bits) {
+        super(info, mixer, format, bufferSize, mixer.getDeviceID(), false, use24bits);
     }
 
     @Override
@@ -23,23 +28,26 @@ final class SimpleTargetDataLine extends SimpleDataLine implements TargetDataLin
         }
         int read = 0;
         while (inIO && !flushing) {
-            int thisRead;
+            int readInLoop;
+            logger.trace("Trying to read " + len + " bytes");
             synchronized (lockNative) {
-                thisRead = SimpleMixer.nRead(nativePtr, bytes, offset, len);
-                if (thisRead < 0)
+                readInLoop = SimpleMixer.nRead(nativePtr, bytes, offset, len);
+                if (readInLoop < 0)
                     // error in native layer
                     break;
-                bytePos += thisRead;
-                if (thisRead > 0) {
+                bytePos += readInLoop;
+                if (readInLoop > 0) {
                     drained = false;
                 }
             }
-            len -= thisRead;
-            read += thisRead;
+            logger.trace("Read " + readInLoop + " bytes");
+            len -= readInLoop;
+            read += readInLoop;
             if (len > 0) {
-                offset += thisRead;
+                offset += readInLoop;
                 synchronized (lock) {
                     try {
+                        logger.trace("Waiting in read loop for " + checkTimeMS + "ms");
                         lock.wait(checkTimeMS);
                     } catch (InterruptedException ignored) {
                     }

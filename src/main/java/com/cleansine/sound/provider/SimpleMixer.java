@@ -12,8 +12,8 @@ import java.util.Vector;
 final class SimpleMixer extends SimpleLine implements Mixer {
     private static final Logger logger = LoggerFactory.getLogger(SimpleMixer.class);
     private final Mixer.Info mixerInfo;
-    private Line.Info[] sourceLineInfos;
-    private Line.Info[] targetLineInfos;
+    private SimpleDataLineInfo[] sourceLineInfos;
+    private SimpleDataLineInfo[] targetLineInfos;
 
     private boolean isOpenedExplicitely = false;
     private boolean isStarted = false;
@@ -32,51 +32,68 @@ final class SimpleMixer extends SimpleLine implements Mixer {
     }
 
     @Nonnull
-    private Line.Info[] initLineInfos(boolean isSource) {
-        Line.Info info = createDataLineInfo(isSource);
+    private SimpleDataLineInfo[] initLineInfos(boolean isSource) {
+        SimpleDataLineInfo info = createDataLineInfo(isSource);
         if (info != null) {
-            Line.Info[] infos = new Line.Info[1];
+            SimpleDataLineInfo[] infos = new SimpleDataLineInfo[1];
             infos[0] = info;
             return infos;
         } else {
-            return new Line.Info[0];
+            return new SimpleDataLineInfo[0];
         }
     }
 
     @Nullable
-    private Line.Info createDataLineInfo(boolean isSource) {
+    private SimpleDataLineInfo createDataLineInfo(boolean isSource) {
         Vector<AudioFormat> deviceFormats = new Vector<>();
         nGetFormats(getDeviceID(), isSource, deviceFormats);
         if (!deviceFormats.isEmpty()) {
+            // replacing combination 24 validbits/32 storebits with 32/32 to comply with AudioFormat contract for PCM encoding, remembering in line info
+            boolean use24bits = false;
+            for (int i = 0; i < deviceFormats.size(); ++i) {
+                AudioFormat format = deviceFormats.get(i);
+                if (format.getSampleSizeInBits() == 24 && format.getFrameSize() == 4 * format.getChannels()) {
+                    AudioFormat modifiedFormat = new DistinctableAudioFormat(
+                            format.getEncoding(),
+                            format.getSampleRate(),
+                            32,
+                            format.getChannels(),
+                            format.getFrameSize(),
+                            format.isBigEndian()
+                    );
+                    // replacing in the vector
+                    deviceFormats.set(i, modifiedFormat);
+                    use24bits = true;
+                    logger.debug("Using modified 32bit format " + modifiedFormat + " instead of the hardware format " + format);
+                }
+            }
             AudioFormat[] formats = deviceFormats.stream()
+                    // removing duplicate values
                     .distinct()
                     .toArray(AudioFormat[]::new);
             // using some minimum buffer size
-            return new DataLine.Info(isSource ? SourceDataLine.class : TargetDataLine.class, formats, 32, AudioSystem.NOT_SPECIFIED);
+            return new SimpleDataLineInfo(isSource ? SourceDataLine.class : TargetDataLine.class, formats, 32, AudioSystem.NOT_SPECIFIED, use24bits);
         } else
             return null;
     }
 
     @Override
     public Line getLine(@Nonnull Line.Info info) {
-        Line.Info existingInfo = getLineInfo(info);
-        if (existingInfo instanceof DataLine.Info && info instanceof DataLine.Info) {
-            DataLine.Info dataLineInfo = (DataLine.Info) existingInfo;
-            AudioFormat[] supportedFormats = ((DataLine.Info) info).getFormats();
-            int lineBufferSize = ((DataLine.Info) info).getMaxBufferSize();
+        SimpleDataLineInfo existingInfo = getLineInfo(info);
+        AudioFormat[] supportedFormats = ((DataLine.Info) info).getFormats();
+        int lineBufferSize = ((DataLine.Info) info).getMaxBufferSize();
 
-            if ((supportedFormats != null) && (supportedFormats.length != 0)) {
-                // using the last format in the info
-                AudioFormat lineFormat = supportedFormats[supportedFormats.length - 1];
-                if (dataLineInfo.getLineClass().isAssignableFrom(SimpleSourceDataLine.class)) {
-                    return new SimpleSourceDataLine(dataLineInfo, lineFormat, lineBufferSize, this);
-                }
-                if (dataLineInfo.getLineClass().isAssignableFrom(SimpleTargetDataLine.class)) {
-                    return new SimpleTargetDataLine(dataLineInfo, lineFormat, lineBufferSize, this);
-                }
-            } else {
-                throw new IllegalArgumentException("line info " + info + " has no supported formats");
+        if ((supportedFormats != null) && (supportedFormats.length != 0)) {
+            // using the last format in the info
+            AudioFormat lineFormat = supportedFormats[supportedFormats.length - 1];
+            if (existingInfo.getLineClass().isAssignableFrom(SimpleSourceDataLine.class)) {
+                return new SimpleSourceDataLine(existingInfo, lineFormat, lineBufferSize, this, existingInfo.shouldUse24bits());
             }
+            if (existingInfo.getLineClass().isAssignableFrom(SimpleTargetDataLine.class)) {
+                return new SimpleTargetDataLine(existingInfo, lineFormat, lineBufferSize, this, existingInfo.shouldUse24bits());
+            }
+        } else {
+            throw new IllegalArgumentException("line info " + info + " has no supported formats");
         }
         throw new IllegalArgumentException("Unsupported line info: " + info);
     }
@@ -281,13 +298,13 @@ final class SimpleMixer extends SimpleLine implements Mixer {
     }
 
     @Nullable
-    Line.Info getLineInfo(@Nonnull Line.Info info) {
-        for (Line.Info i : sourceLineInfos) {
+    SimpleDataLineInfo getLineInfo(@Nonnull Line.Info info) {
+        for (SimpleDataLineInfo i : sourceLineInfos) {
             if (info.matches(i))
                 return i;
         }
 
-        for (Line.Info i : targetLineInfos) {
+        for (SimpleDataLineInfo i : targetLineInfos) {
             if (info.matches(i))
                 return i;
         }
@@ -303,7 +320,6 @@ final class SimpleMixer extends SimpleLine implements Mixer {
 
     /**
      * @return pointer to native struct holding state or 0 (= NULL)
-     *
      */
     static native long nOpen(String deviceID, boolean isSource, int enc, int rate, int sampleSignBits,
                              int frameBytes, int channels, boolean signed, boolean bigEndian, int bufferBytes)
@@ -319,7 +335,7 @@ final class SimpleMixer extends SimpleLine implements Mixer {
 
     static native int nGetAvailBytes(long nativePtr, boolean isSource);
 
-    static native boolean nDrain(long nativePtr);
+    static native void nDrain(long nativePtr);
 
     static native void nFlush(long nativePtr, boolean isSource);
 
