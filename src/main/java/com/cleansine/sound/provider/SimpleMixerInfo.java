@@ -29,4 +29,12 @@ public final class SimpleMixerInfo extends Mixer.Info {
     public String getDeviceID() {
         return deviceID;
     }
+
+    public String toMyString() {
+        return "SimpleMixerInfo{" + this +
+                ", index=" + index +
+                ", deviceID='" + deviceID + '\'' +
+                ", maxLines=" + maxLines +
+                '}';
+    }
 }

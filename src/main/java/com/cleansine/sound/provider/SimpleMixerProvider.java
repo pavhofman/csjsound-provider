@@ -55,6 +55,7 @@ public final class SimpleMixerProvider extends MixerProvider {
             for (int i = 0; i < cnt; i++) {
                 SimpleMixerInfo mInfo = nCreateMixerInfo(i);
                 infosByDeviceID.put(mInfo.getDeviceID(), mInfo);
+                logger.debug("Found device " + mInfo.toMyString());
             }
         }
     }
