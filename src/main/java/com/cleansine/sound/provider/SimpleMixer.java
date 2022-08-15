@@ -80,12 +80,10 @@ final class SimpleMixer extends SimpleLine implements Mixer {
     @Override
     public Line getLine(@Nonnull Line.Info info) {
         SimpleDataLineInfo existingInfo = getLineInfo(info);
-        AudioFormat[] supportedFormats = ((DataLine.Info) info).getFormats();
         int lineBufferSize = ((DataLine.Info) info).getMaxBufferSize();
 
-        if ((supportedFormats != null) && (supportedFormats.length != 0)) {
-            // using the last format in the info
-            AudioFormat lineFormat = supportedFormats[supportedFormats.length - 1];
+        AudioFormat lineFormat = getLastFullySpecifiedFormat(existingInfo);
+        if (lineFormat != null) {
             if (existingInfo.getLineClass().isAssignableFrom(SimpleSourceDataLine.class)) {
                 return new SimpleSourceDataLine(existingInfo, lineFormat, lineBufferSize, this, existingInfo.shouldUse24bits());
             }
@@ -96,6 +94,20 @@ final class SimpleMixer extends SimpleLine implements Mixer {
             throw new IllegalArgumentException("line info " + info + " has no supported formats");
         }
         throw new IllegalArgumentException("Unsupported line info: " + info);
+    }
+
+    @Nullable
+    private AudioFormat getLastFullySpecifiedFormat(@Nonnull SimpleDataLineInfo info) {
+        AudioFormat[] supportedFormats = info.getFormats();
+        if ((supportedFormats != null) && (supportedFormats.length != 0)) {
+            for (int i = supportedFormats.length - 1; i >= 0; --i) {
+                AudioFormat format = supportedFormats[i];
+                if (SimpleMixerProvider.isFullySpecifiedFormat(format)) {
+                    return format;
+                }
+            }
+        }
+        return null;
     }
 
     @Override

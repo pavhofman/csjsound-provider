@@ -49,6 +49,9 @@ abstract class SimpleDataLine extends SimpleLine implements DataLine {
 
 
     public void open(@Nonnull AudioFormat format, int bufferSize) throws LineUnavailableException {
+        if (!SimpleMixerProvider.isFullySpecifiedFormat(format)) {
+            throw new LineUnavailableException("Format " + format + " not fully specified, " + SimpleDataLine.class.getSimpleName() + " + supports only fully specified formats");
+        }
         final AudioFormat hwFormat = determineHwFormat(format);
         //noinspection SynchronizeOnNonFinalField
         synchronized (mixer) {

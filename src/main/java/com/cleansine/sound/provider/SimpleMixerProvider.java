@@ -5,6 +5,8 @@ import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import javax.sound.sampled.AudioFormat;
+import javax.sound.sampled.AudioSystem;
 import javax.sound.sampled.Mixer;
 import javax.sound.sampled.spi.MixerProvider;
 import java.util.HashMap;
@@ -81,6 +83,13 @@ public final class SimpleMixerProvider extends MixerProvider {
                 return getMixerFor((SimpleMixerInfo) info);
         }
         throw new IllegalArgumentException("Mixer " + info + "is not supported by this provider");
+    }
+
+    public static boolean isFullySpecifiedFormat(@Nonnull AudioFormat format) {
+        return format.getSampleRate() != AudioSystem.NOT_SPECIFIED
+                && format.getSampleSizeInBits() != AudioSystem.NOT_SPECIFIED
+                && format.getChannels() != AudioSystem.NOT_SPECIFIED
+                && format.getFrameSize() != AudioSystem.NOT_SPECIFIED;
     }
 
     @Nonnull
