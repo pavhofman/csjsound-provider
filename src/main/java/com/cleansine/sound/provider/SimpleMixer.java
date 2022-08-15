@@ -12,8 +12,8 @@ import java.util.Vector;
 final class SimpleMixer extends SimpleLine implements Mixer {
     private static final Logger logger = LoggerFactory.getLogger(SimpleMixer.class);
     private final Mixer.Info mixerInfo;
-    private SimpleDataLineInfo[] sourceLineInfos;
-    private SimpleDataLineInfo[] targetLineInfos;
+    private final SimpleDataLineInfo[] sourceLineInfos;
+    private final SimpleDataLineInfo[] targetLineInfos;
 
     private boolean isOpenedExplicitely = false;
     private boolean isStarted = false;
@@ -24,11 +24,8 @@ final class SimpleMixer extends SimpleLine implements Mixer {
         super(new Line.Info(Mixer.class), null);
         this.mixer = this;
         this.mixerInfo = mInfo;
-        this.sourceLineInfos = null;
-        this.targetLineInfos = null;
-
-        sourceLineInfos = initLineInfos(true);
-        targetLineInfos = initLineInfos(false);
+        this.sourceLineInfos = initLineInfos(true);
+        this.targetLineInfos = initLineInfos(false);
     }
 
     @Nonnull
