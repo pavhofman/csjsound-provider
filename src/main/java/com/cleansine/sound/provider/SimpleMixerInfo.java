@@ -1,6 +1,8 @@
 package com.cleansine.sound.provider;
 
+import javax.annotation.Nonnull;
 import javax.sound.sampled.Mixer;
+import java.util.Objects;
 
 public final class SimpleMixerInfo extends Mixer.Info {
     private final int index;
@@ -36,5 +38,15 @@ public final class SimpleMixerInfo extends Mixer.Info {
                 ", deviceID='" + deviceID + '\'' +
                 ", maxLines=" + maxLines +
                 '}';
+    }
+
+    public boolean isEqualTo(@Nonnull SimpleMixerInfo mixerInfo) {
+        return Objects.equals(getName(), mixerInfo.getName())
+                && Objects.equals(getVendor(), mixerInfo.getVendor())
+                && Objects.equals(getDescription(), mixerInfo.getDescription())
+                && Objects.equals(getVersion(), mixerInfo.getVersion())
+                && index == mixerInfo.index
+                && Objects.equals(deviceID, mixerInfo.deviceID)
+                && maxLines == mixerInfo.maxLines;
     }
 }
