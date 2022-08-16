@@ -102,18 +102,20 @@ final class SimpleMixer extends SimpleLine implements Mixer {
     @Override
     public Line getLine(@Nonnull Line.Info info) {
         SimpleDataLineInfo existingInfo = getLineInfo(info);
-        int lineBufferSize = ((DataLine.Info) info).getMaxBufferSize();
+        if (existingInfo != null) {
+            int lineBufferSize = ((DataLine.Info) info).getMaxBufferSize();
 
-        AudioFormat lineFormat = getLastFullySpecifiedFormat(existingInfo);
-        if (lineFormat != null) {
-            if (existingInfo.getLineClass().isAssignableFrom(SimpleSourceDataLine.class)) {
-                return new SimpleSourceDataLine(existingInfo, lineFormat, lineBufferSize, this, existingInfo.shouldUse24bits());
+            AudioFormat lineFormat = getLastFullySpecifiedFormat(existingInfo);
+            if (lineFormat != null) {
+                if (existingInfo.getLineClass().isAssignableFrom(SimpleSourceDataLine.class)) {
+                    return new SimpleSourceDataLine(existingInfo, lineFormat, lineBufferSize, this, existingInfo.shouldUse24bits());
+                }
+                if (existingInfo.getLineClass().isAssignableFrom(SimpleTargetDataLine.class)) {
+                    return new SimpleTargetDataLine(existingInfo, lineFormat, lineBufferSize, this, existingInfo.shouldUse24bits());
+                }
+            } else {
+                throw new IllegalArgumentException("line info " + info + " has no supported formats");
             }
-            if (existingInfo.getLineClass().isAssignableFrom(SimpleTargetDataLine.class)) {
-                return new SimpleTargetDataLine(existingInfo, lineFormat, lineBufferSize, this, existingInfo.shouldUse24bits());
-            }
-        } else {
-            throw new IllegalArgumentException("line info " + info + " has no supported formats");
         }
         throw new IllegalArgumentException("Unsupported line info: " + info);
     }
@@ -134,7 +136,7 @@ final class SimpleMixer extends SimpleLine implements Mixer {
 
     @Override
     public int getMaxLines(Line.Info info) {
-        if (getLineInfo(info) instanceof DataLine.Info)
+        if (getLineInfo(info) != null)
             return ((SimpleMixerInfo) getMixerInfo()).getMaxLines();
         else
             return 0;
@@ -228,11 +230,11 @@ final class SimpleMixer extends SimpleLine implements Mixer {
     }
 
     @Override
-    public synchronized void open() throws LineUnavailableException {
+    public synchronized void open() {
         openLine(true);
     }
 
-    final synchronized void openLine(boolean isExplicitely) throws LineUnavailableException {
+    synchronized void openLine(boolean isExplicitely) {
         if (!isOpen()) {
             setOpen(true);
             if (isExplicitely)
@@ -240,7 +242,7 @@ final class SimpleMixer extends SimpleLine implements Mixer {
         }
     }
 
-    synchronized void openLine(Line line) throws LineUnavailableException {
+    synchronized void openLine(Line line) {
         if (this.equals(line))
             // no action
             return;
@@ -303,11 +305,11 @@ final class SimpleMixer extends SimpleLine implements Mixer {
             // no action
             return;
         // return if any other line is running
-        for (Line l : (Vector<Line>) sourceLines.clone()) {
+        for (Line l : new Vector<>(sourceLines)) {
             if (((SimpleDataLine) l).isRunning && (!l.equals(line)))
                 return;
         }
-        for (Line l : (Vector<Line>) targetLines.clone()) {
+        for (Line l : new Vector<>(targetLines)) {
             if (((SimpleDataLine) l).isRunning && (!l.equals(line)))
                 return;
         }
