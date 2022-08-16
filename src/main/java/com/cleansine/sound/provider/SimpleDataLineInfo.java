@@ -4,7 +4,7 @@ import javax.sound.sampled.AudioFormat;
 import javax.sound.sampled.DataLine;
 
 public final class SimpleDataLineInfo extends DataLine.Info {
-    private boolean use24bits;
+    final private boolean use24bits;
 
     public SimpleDataLineInfo(Class<?> lineClass, AudioFormat[] formats, int minBufferSize, int maxBufferSize, boolean use24bits) {
         super(lineClass, formats, minBufferSize, maxBufferSize);
