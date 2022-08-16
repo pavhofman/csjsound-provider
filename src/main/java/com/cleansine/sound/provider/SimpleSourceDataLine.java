@@ -5,13 +5,39 @@ import org.slf4j.LoggerFactory;
 
 import javax.sound.sampled.AudioFormat;
 import javax.sound.sampled.DataLine;
+import javax.sound.sampled.LineUnavailableException;
 import javax.sound.sampled.SourceDataLine;
 
 final class SimpleSourceDataLine extends SimpleDataLine implements SourceDataLine {
     private static final Logger logger = LoggerFactory.getLogger(SimpleSourceDataLine.class);
 
+    // if a write operation occurred in stopped state
+    private volatile boolean writtenWhenStopped = false;
+
+
     SimpleSourceDataLine(DataLine.Info info, AudioFormat format, int bufferSize, SimpleMixer mixer, boolean use24bits) {
         super(info, mixer, format, bufferSize, mixer.getDeviceID(), true, use24bits);
+    }
+
+    @Override
+    void doOpen(AudioFormat hwFormat, int bufferBytes) throws LineUnavailableException {
+        super.doOpen(hwFormat, bufferBytes);
+        writtenWhenStopped = false;
+    }
+
+    @Override
+    void doStart() {
+        super.doStart();
+        if (writtenWhenStopped) {
+            setStarted(true);
+            setActive(true);
+        }
+    }
+
+    @Override
+    void doStop() {
+        super.doStop();
+        writtenWhenStopped = false;
     }
 
     public int write(byte[] bytes, int offset, int len) {
@@ -29,7 +55,7 @@ final class SimpleSourceDataLine extends SimpleDataLine implements SourceDataLin
             if (len % getFormat().getFrameSize() != 0)
                 throw new IllegalArgumentException("Requesting to write non-integral number of frames (" + len + " bytes, " + "frameBytes = " + getFormat().getFrameSize() + " bytes)");
 
-            if (!isActive() && inIO) {
+            if (!isActive && inIO) {
                 setActive(true);
                 setStarted(true);
             }

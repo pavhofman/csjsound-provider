@@ -22,7 +22,7 @@ final class SimpleTargetDataLine extends SimpleDataLine implements TargetDataLin
             return 0;
         if (len % getFormat().getFrameSize() != 0)
             throw new IllegalArgumentException("Requesting to read non-integral number of frames (" + len + " bytes, " + "frameBytes = " + getFormat().getFrameSize() + " bytes)");
-        if (!isActive() && inIO) {
+        if (!isActive && inIO) {
             setActive(true);
             setStarted(true);
         }

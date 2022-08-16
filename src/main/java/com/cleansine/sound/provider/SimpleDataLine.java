@@ -27,10 +27,9 @@ abstract class SimpleDataLine extends SimpleLine implements DataLine {
     protected volatile long bytePos;
     // if in between start() and stop() calls
     protected volatile boolean inIO = false;
-    // if a write operation occurred in stopped state
-    protected volatile boolean writtenWhenStopped = false;
-    protected volatile boolean drained = false; // set to true when drain function returns, set to false in write()
+    // set to true when drain function returns, set to false in write()
     protected volatile boolean isStarted;
+    protected volatile boolean drained = false;
     protected volatile boolean isActive;
 
     protected volatile boolean use24bits;
@@ -135,7 +134,7 @@ abstract class SimpleDataLine extends SimpleLine implements DataLine {
                     doStop();
                     mixer.stopLine(this);
                     isRunning = false;
-                    if (isStarted && (!isActive()))
+                    if (isStarted && !isActive)
                         setStarted(false);
                 }
             }
@@ -187,7 +186,7 @@ abstract class SimpleDataLine extends SimpleLine implements DataLine {
         }
     }
 
-    void setActive(boolean active) {
+    final void setActive(boolean active) {
         synchronized (this) {
             if (this.isActive != active)
                 this.isActive = active;
@@ -251,7 +250,6 @@ abstract class SimpleDataLine extends SimpleLine implements DataLine {
         // 1/8 of buffer time
         checkTimeMS = (int) ((long) this.bufferBytes / hwFormat.getFrameRate() * 1000.0f / hwFormat.getFrameSize()) / 8;
         bytePos = 0;
-        writtenWhenStopped = false;
         inIO = false;
     }
 
@@ -275,10 +273,6 @@ abstract class SimpleDataLine extends SimpleLine implements DataLine {
             SimpleMixer.nStart(nativePtr, isSource);
         }
         inIO = true;
-        if (isSource && writtenWhenStopped) {
-            setStarted(true);
-            setActive(true);
-        }
     }
 
     void doStop() {
@@ -291,7 +285,6 @@ abstract class SimpleDataLine extends SimpleLine implements DataLine {
         }
         setActive(false);
         setStarted(false);
-        writtenWhenStopped = false;
     }
 
     @Override
