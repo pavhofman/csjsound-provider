@@ -17,48 +17,50 @@ final class SimpleTargetDataLine extends SimpleDataLine implements TargetDataLin
 
     @Override
     public int read(byte[] bytes, int offset, int len) {
-        flushing = false;
-        if (len == 0)
-            return 0;
-        if (len % getFormat().getFrameSize() != 0)
-            throw new IllegalArgumentException("Requesting to read non-integral number of frames (" + len + " bytes, " + "frameBytes = " + getFormat().getFrameSize() + " bytes)");
-        if (!isActive && inIO) {
-            setActive(true);
-            setStarted(true);
-        }
-        int read = 0;
-        while (inIO && !flushing) {
-            int readInLoop;
-            logger.trace("Trying to read " + len + " bytes");
-            synchronized (lockNative) {
-                readInLoop = SimpleMixer.nRead(nativePtr, bytes, offset, len);
-                if (readInLoop < 0)
-                    // error in native layer
-                    break;
-                bytePos += readInLoop;
-                if (readInLoop > 0) {
-                    drained = false;
-                }
+        synchronized (this) {
+            flushing = false;
+            if (len == 0)
+                return 0;
+            if (len % getFormat().getFrameSize() != 0)
+                throw new IllegalArgumentException("Requesting to read non-integral number of frames (" + len + " bytes, " + "frameBytes = " + getFormat().getFrameSize() + " bytes)");
+            if (!isActive && inIO) {
+                setActive(true);
+                setStarted(true);
             }
-            logger.trace("Read " + readInLoop + " bytes");
-            len -= readInLoop;
-            read += readInLoop;
-            if (len > 0) {
-                offset += readInLoop;
-                synchronized (lock) {
-                    try {
-                        logger.trace("Waiting in read loop for " + checkTimeMS + "ms");
-                        lock.wait(checkTimeMS);
-                    } catch (InterruptedException ignored) {
+            int read = 0;
+            while (inIO && !flushing) {
+                int readInLoop;
+                logger.trace("Trying to read " + len + " bytes");
+                synchronized (lockNative) {
+                    readInLoop = SimpleMixer.nRead(nativePtr, bytes, offset, len);
+                    if (readInLoop < 0)
+                        // error in native layer
+                        break;
+                    bytePos += readInLoop;
+                    if (readInLoop > 0) {
+                        drained = false;
                     }
                 }
-            } else {
-                break;
+                logger.trace("Read " + readInLoop + " bytes");
+                len -= readInLoop;
+                read += readInLoop;
+                if (len > 0) {
+                    offset += readInLoop;
+                    synchronized (lock) {
+                        try {
+                            logger.trace("Waiting in read loop for " + checkTimeMS + "ms");
+                            lock.wait(checkTimeMS);
+                        } catch (InterruptedException ignored) {
+                        }
+                    }
+                } else {
+                    break;
+                }
             }
+            if (flushing)
+                read = 0;
+            return read;
         }
-        if (flushing)
-            read = 0;
-        return read;
     }
 
 }
