@@ -6,7 +6,9 @@ import org.slf4j.LoggerFactory;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import javax.sound.sampled.*;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.List;
 import java.util.Vector;
 
 final class SimpleMixer extends SimpleLine implements Mixer {
@@ -47,20 +49,43 @@ final class SimpleMixer extends SimpleLine implements Mixer {
         if (!deviceFormats.isEmpty()) {
             // replacing combination 24 validbits/32 storebits with 32/32 to comply with AudioFormat contract for PCM encoding, remembering in line info
             boolean use24bits = false;
+            List<Integer> idsWithUnspecified24bits = new ArrayList<>();
             for (int i = 0; i < deviceFormats.size(); ++i) {
                 AudioFormat format = deviceFormats.get(i);
-                if (format.getSampleSizeInBits() == 24 && format.getFrameSize() == 4 * format.getChannels()) {
+                // use24bits can be determined only from formats with frameSize/channels specified
+                if (format.getSampleSizeInBits() == 24) {
+                    if (format.getFrameSize() == 4 * format.getChannels()) {
+                        AudioFormat modifiedFormat = new DistinctableAudioFormat(
+                                format.getEncoding(),
+                                format.getSampleRate(),
+                                32,
+                                format.getChannels(),
+                                format.getFrameSize(),
+                                format.isBigEndian()
+                        );
+                        // replacing in the vector
+                        deviceFormats.set(i, modifiedFormat);
+                        use24bits = true;
+                        logger.debug("Using modified 32bit format " + modifiedFormat + " instead of the hardware format " + format);
+                    } else if (format.getFrameSize() == AudioSystem.NOT_SPECIFIED)
+                        // storing vector index for modifications in the next step
+                        idsWithUnspecified24bits.add(i);
+                }
+            }
+            if (use24bits) {
+                // must modify the unspecified 24bits formats
+                for (Integer id : idsWithUnspecified24bits) {
+                    AudioFormat format = deviceFormats.get(id);
                     AudioFormat modifiedFormat = new DistinctableAudioFormat(
                             format.getEncoding(),
                             format.getSampleRate(),
                             32,
-                            format.getChannels(),
-                            format.getFrameSize(),
+                            AudioSystem.NOT_SPECIFIED,
+                            AudioSystem.NOT_SPECIFIED,
                             format.isBigEndian()
                     );
                     // replacing in the vector
-                    deviceFormats.set(i, modifiedFormat);
-                    use24bits = true;
+                    deviceFormats.set(id, modifiedFormat);
                     logger.debug("Using modified 32bit format " + modifiedFormat + " instead of the hardware format " + format);
                 }
             }
