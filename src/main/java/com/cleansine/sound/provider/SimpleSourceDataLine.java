@@ -55,7 +55,7 @@ final class SimpleSourceDataLine extends SimpleDataLine implements SourceDataLin
             if (len % getFormat().getFrameSize() != 0)
                 throw new IllegalArgumentException("Requesting to write non-integral number of frames (" + len + " bytes, " + "frameBytes = " + getFormat().getFrameSize() + " bytes)");
 
-            if (!isActive && inIO) {
+            if (!active && inIO) {
                 setActive(true);
                 setStarted(true);
             }

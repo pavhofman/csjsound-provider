@@ -19,8 +19,9 @@ abstract class SimpleDataLine extends SimpleLine implements DataLine {
     protected AudioFormat format;
     protected int bufferBytes;
     protected final Object lock = new Object();
+    // all native calls are synchronized for one line
     protected final Object lockNative = new Object();
-    protected volatile boolean isRunning;
+    protected volatile boolean running;
     protected long nativePtr;
     protected int checkTimeMS;
     protected volatile boolean flushing = false;
@@ -28,9 +29,9 @@ abstract class SimpleDataLine extends SimpleLine implements DataLine {
     // if in between start() and stop() calls
     protected volatile boolean inIO = false;
     // set to true when drain function returns, set to false in write()
-    protected volatile boolean isStarted;
+    protected volatile boolean started;
     protected volatile boolean drained = false;
-    protected volatile boolean isActive;
+    protected volatile boolean active;
 
     protected volatile boolean use24bits;
 
@@ -112,10 +113,10 @@ abstract class SimpleDataLine extends SimpleLine implements DataLine {
         //noinspection SynchronizeOnNonFinalField
         synchronized (mixer) {
             if (isOpen()) {
-                if (!this.isRunning) {
+                if (!this.running) {
                     mixer.start(this);
                     doStart();
-                    isRunning = true;
+                    running = true;
                 }
             }
         }
@@ -130,11 +131,11 @@ abstract class SimpleDataLine extends SimpleLine implements DataLine {
         //noinspection SynchronizeOnNonFinalField
         synchronized (mixer) {
             if (isOpen()) {
-                if (isRunning) {
+                if (running) {
                     doStop();
                     mixer.stopLine(this);
-                    isRunning = false;
-                    if (isStarted && !isActive)
+                    running = false;
+                    if (started && !active)
                         setStarted(false);
                 }
             }
@@ -147,12 +148,12 @@ abstract class SimpleDataLine extends SimpleLine implements DataLine {
 
     @Override
     public boolean isRunning() {
-        return isStarted;
+        return started;
     }
 
     @Override
     public boolean isActive() {
-        return isActive;
+        return active;
     }
 
     @Override
@@ -181,15 +182,15 @@ abstract class SimpleDataLine extends SimpleLine implements DataLine {
 
     final void setStarted(boolean started) {
         synchronized (this) {
-            if (this.isStarted != started)
-                this.isStarted = started;
+            if (this.started != started)
+                this.started = started;
         }
     }
 
     final void setActive(boolean active) {
         synchronized (this) {
-            if (this.isActive != active)
-                this.isActive = active;
+            if (this.active != active)
+                this.active = active;
         }
     }
 
@@ -210,11 +211,11 @@ abstract class SimpleDataLine extends SimpleLine implements DataLine {
                 mixer.closeLine(this);
             }
         }
-        try {
-            //this.os.close();
-        } catch (Exception e) {
-            logger.error("Error closing stream", e);
-        }
+//        try {
+//            this.os.close();
+//        } catch (Exception e) {
+//            logger.error("Error closing stream", e);
+//        }
     }
 
     public int getFramePosition() {

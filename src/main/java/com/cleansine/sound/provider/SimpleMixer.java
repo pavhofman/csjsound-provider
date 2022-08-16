@@ -306,11 +306,11 @@ final class SimpleMixer extends SimpleLine implements Mixer {
             return;
         // return if any other line is running
         for (Line l : new Vector<>(sourceLines)) {
-            if (((SimpleDataLine) l).isRunning && (!l.equals(line)))
+            if (((SimpleDataLine) l).running && (!l.equals(line)))
                 return;
         }
         for (Line l : new Vector<>(targetLines)) {
-            if (((SimpleDataLine) l).isRunning && (!l.equals(line)))
+            if (((SimpleDataLine) l).running && (!l.equals(line)))
                 return;
         }
 
