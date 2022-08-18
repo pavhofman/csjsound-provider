@@ -21,13 +21,58 @@ public final class SimpleMixerProvider extends MixerProvider {
     // all access synchronized, no need for concurrent version
     private static final Map<SimpleMixerInfo, SimpleMixer> mixersByInfo = new ConcurrentHashMap<>();
 
+    // defined in the native LIB
+    public static final int LIB_LOG_LEVEL_ERROR = 0;
+    public static final int LIB_LOG_LEVEL_INFO = 1;
+    public static final int LIB_LOG_LEVEL_DEBUG = 2;
+    public static final int LIB_LOG_LEVEL_TRACE = 3;
+
     static {
         isNativeLibLoaded = true;
         try {
             String lib = LIBRARY_NAME + "_" + System.getProperty("os.arch");
             logger.debug("Loading dynlib " + lib);
             System.loadLibrary(lib);
-            if (!nInit()) {
+            String libLogLevel = System.getProperty("csjsoundLibLogLevel");
+            Integer libLogLevelID = null;
+            if (libLogLevel != null) {
+                libLogLevel = libLogLevel.toLowerCase();
+                switch (libLogLevel) {
+                    case "error":
+                        libLogLevelID = LIB_LOG_LEVEL_ERROR;
+                        break;
+                    case "info":
+                        libLogLevelID = LIB_LOG_LEVEL_INFO;
+                        break;
+                    case "debug":
+                        libLogLevelID = LIB_LOG_LEVEL_DEBUG;
+                        break;
+                    case "trace":
+                        libLogLevelID = LIB_LOG_LEVEL_TRACE;
+                        break;
+                    default:
+                        // will use java logger level
+                        break;
+                }
+            }
+            if (libLogLevelID == null) {
+                // not requested, using java logger level
+                if (logger.isTraceEnabled())
+                    libLogLevelID = LIB_LOG_LEVEL_TRACE;
+                else if (logger.isDebugEnabled())
+                    libLogLevelID = LIB_LOG_LEVEL_DEBUG;
+                else if (logger.isInfoEnabled())
+                    libLogLevelID = LIB_LOG_LEVEL_INFO;
+                else
+                    libLogLevelID = LIB_LOG_LEVEL_DEBUG;
+            }
+            // csjsoundLibLogFile: either path to log file, or "stdout"/"stderr"
+            String libLogTarget = System.getProperty("csjsoundLibLogFile");
+            if (libLogTarget == null || libLogTarget.isEmpty())
+                // directly to user home dir which should be writable
+                libLogTarget = System.getProperty("user.home") + "/csjsound-lib.log";
+
+            if (!nInit(libLogLevelID, libLogTarget)) {
                 throw new Exception("Initializing " + lib + " failed");
             }
         } catch (Throwable t) {
@@ -132,7 +177,7 @@ public final class SimpleMixerProvider extends MixerProvider {
     /**
      * Must be called only once!
      */
-    private static native boolean nInit();
+    private static native boolean nInit(int logLevelID, @Nonnull String logTarget);
 
     // count or -1 when error
     private static native int nGetMixerCnt();
