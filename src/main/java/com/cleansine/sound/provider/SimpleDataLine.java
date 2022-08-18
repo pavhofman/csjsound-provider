@@ -8,6 +8,7 @@ import javax.sound.sampled.AudioFormat;
 import javax.sound.sampled.AudioSystem;
 import javax.sound.sampled.DataLine;
 import javax.sound.sampled.LineUnavailableException;
+import java.util.Map;
 
 abstract class SimpleDataLine extends SimpleLine implements DataLine {
 
@@ -32,23 +33,23 @@ abstract class SimpleDataLine extends SimpleLine implements DataLine {
     protected volatile boolean started;
     protected volatile boolean drained = false;
     protected volatile boolean active;
+    final private Map<AudioFormat, AudioFormat> hwFormatByFormat;
 
-    protected volatile boolean use24bits;
 
     //protected FileOutputStream os = null;
 
-    protected SimpleDataLine(DataLine.Info info, SimpleMixer mixer, @Nonnull AudioFormat format, int bufferBytes, String deviceID, boolean isSource, boolean use24bits) {
+    protected SimpleDataLine(DataLine.Info info, SimpleMixer mixer, @Nonnull AudioFormat format, int bufferBytes, String deviceID, boolean isSource, @Nonnull Map<AudioFormat, AudioFormat> hwFormatByFormat) {
         super(info, mixer);
         this.format = format;
         this.bufferBytes = bufferBytes;
         this.deviceID = deviceID;
         this.checkTimeMS = 2;  // timeout to check whether all data have been read/written
         this.isSource = isSource;
-        this.use24bits = use24bits;
+        this.hwFormatByFormat = hwFormatByFormat;
     }
 
 
-    public void open(@Nonnull AudioFormat format, int bufferSize) throws LineUnavailableException {
+    public void open(@Nonnull final AudioFormat format, final int bufferSize) throws LineUnavailableException {
         if (!SimpleMixerProvider.isFullySpecifiedFormat(format)) {
             throw new LineUnavailableException("Format " + format + " not fully specified, " + SimpleDataLine.class.getSimpleName() + " + supports only fully specified formats");
         }
@@ -86,22 +87,16 @@ abstract class SimpleDataLine extends SimpleLine implements DataLine {
 
 
     @Nonnull
-    private AudioFormat determineHwFormat(@Nonnull AudioFormat format) {
-        if (format.getSampleSizeInBits() == 32 && this.use24bits) {
-            // hardware needs 24 bits
-            AudioFormat hwFormat = new DistinctableAudioFormat(
-                    format.getEncoding(),
-                    format.getSampleRate(),
-                    24,
-                    format.getChannels(),
-                    format.getFrameSize(),
-                    format.isBigEndian()
-            );
-            logger.debug("Using original 24bit format " + hwFormat + " instead of the requested format " + format);
-            return hwFormat;
-        } else {
-            return format;
+    private AudioFormat determineHwFormat(@Nonnull final AudioFormat format) {
+        // find in the list
+        for (Map.Entry<AudioFormat, AudioFormat> entry : hwFormatByFormat.entrySet()) {
+            if (entry.getKey().matches(format)) {
+                AudioFormat hwFormat = entry.getValue();
+                logger.debug("Using HW format " + hwFormat + " instead of the requested format " + format);
+                return hwFormat;
+            }
         }
+        return format;
     }
 
     public void open(AudioFormat format) throws LineUnavailableException {
@@ -222,7 +217,7 @@ abstract class SimpleDataLine extends SimpleLine implements DataLine {
         return (int) getLongFramePosition();
     }
 
-    void doOpen(AudioFormat hwFormat, int bufferBytes) throws LineUnavailableException {
+    void doOpen(final AudioFormat hwFormat, int bufferBytes) throws LineUnavailableException {
         if (!isPCMEncoding(hwFormat))
             throw new IllegalArgumentException("Unsupported encoding " + hwFormat.getEncoding() + ", only PCM is supported");
 

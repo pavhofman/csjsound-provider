@@ -6,10 +6,7 @@ import org.slf4j.LoggerFactory;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import javax.sound.sampled.*;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
-import java.util.Vector;
+import java.util.*;
 
 final class SimpleMixer extends SimpleLine implements Mixer {
     private static final Logger logger = LoggerFactory.getLogger(SimpleMixer.class);
@@ -42,40 +39,62 @@ final class SimpleMixer extends SimpleLine implements Mixer {
         }
     }
 
+    private boolean containsAlso32bitFormat(Collection<AudioFormat> deviceFormats, AudioFormat format24bits) {
+        for (AudioFormat format : deviceFormats) {
+            // everything equal but 32 significant bits
+            if (format.getEncoding().equals(format24bits.getEncoding())
+                    && format.getChannels() == format24bits.getChannels()
+                    && format.getSampleRate() == format24bits.getSampleRate()
+                    && format.getSampleSizeInBits() == 32
+                    && format.getFrameRate() == format24bits.getFrameRate()
+                    && format.getFrameSize() == format24bits.getFrameSize()
+                    && format.isBigEndian() == format24bits.isBigEndian())
+                return true;
+        }
+        return false;
+    }
+
     @Nullable
     private SimpleDataLineInfo createDataLineInfo(boolean isSource) {
         Vector<AudioFormat> deviceFormats = new Vector<>();
+        // filling the vector
         nGetFormats(getDeviceID(), isSource, deviceFormats);
+        List<AudioFormat> reportedDeviceFormats = new ArrayList<>(deviceFormats);
         if (!deviceFormats.isEmpty()) {
             // replacing combination 24 validbits/32 storebits with 32/32 to comply with AudioFormat contract for PCM encoding, remembering in line info
-            boolean use24bits = false;
+            final Map<AudioFormat, AudioFormat> hwFormatByFormat = new HashMap<>();
             List<Integer> idsWithUnspecified24bits = new ArrayList<>();
-            for (int i = 0; i < deviceFormats.size(); ++i) {
-                AudioFormat format = deviceFormats.get(i);
+            for (int i = 0; i < reportedDeviceFormats.size(); ++i) {
+                AudioFormat hwFormat = reportedDeviceFormats.get(i);
                 // use24bits can be determined only from formats with frameSize/channels specified
-                if (format.getSampleSizeInBits() == 24) {
-                    if (format.getFrameSize() == 4 * format.getChannels()) {
-                        AudioFormat modifiedFormat = new DistinctableAudioFormat(
-                                format.getEncoding(),
-                                format.getSampleRate(),
+                if (/* 24 sign. bits */ hwFormat.getSampleSizeInBits() == 24) {
+                    if (hwFormat.getFrameSize() == 4 * hwFormat.getChannels()) {
+                        // /* 24sign/32size will be replaced with 32sign/32size version to comply with javasound contract
+                        AudioFormat formatToReport = new DistinctableAudioFormat(
+                                hwFormat.getEncoding(),
+                                hwFormat.getSampleRate(),
                                 32,
-                                format.getChannels(),
-                                format.getFrameSize(),
-                                format.isBigEndian()
+                                hwFormat.getChannels(),
+                                hwFormat.getFrameSize(),
+                                hwFormat.isBigEndian()
                         );
-                        // replacing in the vector
-                        deviceFormats.set(i, modifiedFormat);
-                        use24bits = true;
-                        logger.debug("Using modified 32bit format " + modifiedFormat + " instead of the hardware format " + format);
-                    } else if (format.getFrameSize() == AudioSystem.NOT_SPECIFIED)
-                        // storing vector index for modifications in the next step
+                        // replacing in the reported vector
+                        reportedDeviceFormats.set(i, formatToReport);
+                        if (!containsAlso32bitFormat(deviceFormats, hwFormat)) {
+                            // has no 32bit equivalent which otherwise would be preferred to use
+                            // remembering the 24->32 conversion for reverse operation in line.open()
+                            hwFormatByFormat.put(formatToReport, hwFormat);
+                        }
+                        logger.debug("Reporting modified 32bit format " + formatToReport + " instead of the hardware format " + hwFormat);
+                    } else if (hwFormat.getFrameSize() == AudioSystem.NOT_SPECIFIED)
+                        // storing index for modifications in the next step
                         idsWithUnspecified24bits.add(i);
                 }
             }
-            if (use24bits) {
+            if (!hwFormatByFormat.isEmpty()) {
                 // must modify the unspecified 24bits formats
                 for (Integer id : idsWithUnspecified24bits) {
-                    AudioFormat format = deviceFormats.get(id);
+                    AudioFormat format = reportedDeviceFormats.get(id);
                     AudioFormat modifiedFormat = new DistinctableAudioFormat(
                             format.getEncoding(),
                             format.getSampleRate(),
@@ -85,16 +104,16 @@ final class SimpleMixer extends SimpleLine implements Mixer {
                             format.isBigEndian()
                     );
                     // replacing in the vector
-                    deviceFormats.set(id, modifiedFormat);
+                    reportedDeviceFormats.set(id, modifiedFormat);
                     logger.debug("Using modified 32bit format " + modifiedFormat + " instead of the hardware format " + format);
                 }
             }
-            AudioFormat[] formats = deviceFormats.stream()
+            AudioFormat[] formats = reportedDeviceFormats.stream()
                     // removing duplicate values
                     .distinct()
                     .toArray(AudioFormat[]::new);
             // using some minimum buffer size
-            return new SimpleDataLineInfo(isSource ? SourceDataLine.class : TargetDataLine.class, formats, 32, AudioSystem.NOT_SPECIFIED, use24bits);
+            return new SimpleDataLineInfo(isSource ? SourceDataLine.class : TargetDataLine.class, formats, 32, AudioSystem.NOT_SPECIFIED, hwFormatByFormat);
         } else
             return null;
     }
@@ -108,10 +127,10 @@ final class SimpleMixer extends SimpleLine implements Mixer {
             AudioFormat lineFormat = getLastFullySpecifiedFormat(existingInfo);
             if (lineFormat != null) {
                 if (existingInfo.getLineClass().isAssignableFrom(SimpleSourceDataLine.class)) {
-                    return new SimpleSourceDataLine(existingInfo, lineFormat, lineBufferSize, this, existingInfo.shouldUse24bits());
+                    return new SimpleSourceDataLine(existingInfo, lineFormat, lineBufferSize, this, existingInfo.gethwFormatByFormat());
                 }
                 if (existingInfo.getLineClass().isAssignableFrom(SimpleTargetDataLine.class)) {
-                    return new SimpleTargetDataLine(existingInfo, lineFormat, lineBufferSize, this, existingInfo.shouldUse24bits());
+                    return new SimpleTargetDataLine(existingInfo, lineFormat, lineBufferSize, this, existingInfo.gethwFormatByFormat());
                 }
             } else {
                 throw new IllegalArgumentException("line info " + info + " has no supported formats");

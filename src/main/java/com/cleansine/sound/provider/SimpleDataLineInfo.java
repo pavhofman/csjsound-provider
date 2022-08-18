@@ -1,17 +1,20 @@
 package com.cleansine.sound.provider;
 
+import javax.annotation.Nonnull;
 import javax.sound.sampled.AudioFormat;
 import javax.sound.sampled.DataLine;
+import java.util.Map;
 
 public final class SimpleDataLineInfo extends DataLine.Info {
-    final private boolean use24bits;
+    private final Map<AudioFormat, AudioFormat> hwFormatByFormat;
 
-    public SimpleDataLineInfo(Class<?> lineClass, AudioFormat[] formats, int minBufferSize, int maxBufferSize, boolean use24bits) {
+    public SimpleDataLineInfo(Class<?> lineClass, AudioFormat[] formats, int minBufferSize, int maxBufferSize, @Nonnull Map<AudioFormat, AudioFormat> hwFormatByFormat) {
         super(lineClass, formats, minBufferSize, maxBufferSize);
-        this.use24bits = use24bits;
+        this.hwFormatByFormat = hwFormatByFormat;
     }
 
-    public boolean shouldUse24bits() {
-        return use24bits;
+    @Nonnull
+    public Map<AudioFormat, AudioFormat> gethwFormatByFormat() {
+        return hwFormatByFormat;
     }
 }

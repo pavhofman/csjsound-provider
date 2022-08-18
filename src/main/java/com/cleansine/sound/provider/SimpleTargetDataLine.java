@@ -3,16 +3,18 @@ package com.cleansine.sound.provider;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import javax.annotation.Nonnull;
 import javax.sound.sampled.AudioFormat;
 import javax.sound.sampled.DataLine;
 import javax.sound.sampled.TargetDataLine;
+import java.util.Map;
 
 final class SimpleTargetDataLine extends SimpleDataLine implements TargetDataLine {
 
     private static final Logger logger = LoggerFactory.getLogger(SimpleTargetDataLine.class);
 
-    SimpleTargetDataLine(DataLine.Info info, AudioFormat format, int bufferSize, SimpleMixer mixer, boolean use24bits) {
-        super(info, mixer, format, bufferSize, mixer.getDeviceID(), false, use24bits);
+    SimpleTargetDataLine(DataLine.Info info, AudioFormat format, int bufferSize, SimpleMixer mixer, @Nonnull  Map<AudioFormat, AudioFormat> hwFormatByFormat) {
+        super(info, mixer, format, bufferSize, mixer.getDeviceID(), false, hwFormatByFormat);
     }
 
     @Override

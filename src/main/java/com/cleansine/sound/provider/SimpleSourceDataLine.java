@@ -7,6 +7,7 @@ import javax.sound.sampled.AudioFormat;
 import javax.sound.sampled.DataLine;
 import javax.sound.sampled.LineUnavailableException;
 import javax.sound.sampled.SourceDataLine;
+import java.util.Map;
 
 final class SimpleSourceDataLine extends SimpleDataLine implements SourceDataLine {
     private static final Logger logger = LoggerFactory.getLogger(SimpleSourceDataLine.class);
@@ -15,12 +16,12 @@ final class SimpleSourceDataLine extends SimpleDataLine implements SourceDataLin
     private volatile boolean writtenWhenStopped = false;
 
 
-    SimpleSourceDataLine(DataLine.Info info, AudioFormat format, int bufferSize, SimpleMixer mixer, boolean use24bits) {
-        super(info, mixer, format, bufferSize, mixer.getDeviceID(), true, use24bits);
+    SimpleSourceDataLine(DataLine.Info info, AudioFormat format, int bufferSize, SimpleMixer mixer, Map<AudioFormat, AudioFormat> hwFormatByFormat) {
+        super(info, mixer, format, bufferSize, mixer.getDeviceID(), true, hwFormatByFormat);
     }
 
     @Override
-    void doOpen(AudioFormat hwFormat, int bufferBytes) throws LineUnavailableException {
+    void doOpen(final AudioFormat hwFormat, int bufferBytes) throws LineUnavailableException {
         super.doOpen(hwFormat, bufferBytes);
         writtenWhenStopped = false;
     }
