@@ -240,7 +240,7 @@ public final class SimpleMixerProvider extends MixerProvider {
     /**
      * Must be called only once!
      */
-    private static native boolean nInit(int logLevelID, @Nonnull String logTarget, @Nonnull int[] rates, @Nonnull int[] channels, int maxRateLimit, int maxChannelLimit);
+    private static native boolean nInit(int logLevelID, @Nonnull String logTarget, @Nonnull int[] rates, @Nonnull int[] channels, int maxRateLimit, int maxChannelsLimit);
 
     // count or -1 when error
     private static native int nGetMixerCnt();
