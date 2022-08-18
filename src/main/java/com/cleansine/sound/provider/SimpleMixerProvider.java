@@ -28,6 +28,41 @@ public final class SimpleMixerProvider extends MixerProvider {
     private static final int LIB_LOG_LEVEL_DEBUG = 3;
     private static final int LIB_LOG_LEVEL_TRACE = 4;
 
+    // used if no property is specified
+    private static final int[] DEFAULT_RATES = new int[]{44_100, 48_000, 88_200, 96_000, 176_400, 192_000, 352_800, 384_000,
+            705_600, 768_00, 1_411_200, 1_536_000};
+
+    // used if no property is specified
+    private static final int[] DEFAULT_CHANNELS = new int[]{1, 2, 4, 6, 8, 10, 12, 14, 16};
+
+    // used if both DEFAULT_RATES and DEFAULT_CHANNELS are used
+    // the rate/channels combination is applied IF rate < MAX_RATE_LIMIT || channels < MAX_CHANNELS_LIMIT
+    private static final int MAX_RATE_LIMIT = 384000;
+    private static final int MAX_CHANNELS_LIMIT = 8;
+
+
+    private static int[] parsePropertyToIntArray(String propertyStr) throws NumberFormatException {
+        String str = System.getProperty(propertyStr);
+        if (str != null && !str.isEmpty()) {
+            String[] strItems = str.split(",");
+            int[] items = new int[strItems.length];
+            int idx = 0;
+            try {
+                for (String item : strItems) {
+                    item = item.trim();
+                    items[idx] = Integer.parseInt(item);
+                    ++idx;
+                }
+            } catch (NumberFormatException e) {
+                logger.error("Cannot parse to int array: " + str);
+                return null;
+            }
+            return items.length > 0 ? items : null;
+        } else
+            return null;
+    }
+
+
     static {
         isNativeLibLoaded = true;
         try {
@@ -78,7 +113,29 @@ public final class SimpleMixerProvider extends MixerProvider {
                 // directly to user home dir which should be writable
                 libLogTarget = System.getProperty("user.home") + "/csjsound-lib.log";
 
-            if (!nInit(libLogLevelID, libLogTarget)) {
+
+            boolean bothDefaults = true;
+            int[] rates = parsePropertyToIntArray("csjsoundRates");
+            if (rates == null) {
+                logger.info("No usable property csjsoundRates found, will use default rates: " + Arrays.toString(DEFAULT_RATES));
+                rates = DEFAULT_RATES;
+            } else {
+                bothDefaults = false;
+            }
+
+            int[] channels = parsePropertyToIntArray("csjsoundChannels");
+            if (channels == null) {
+                logger.info("No usable property csjsoundChannels found, will use default channels: " + Arrays.toString(DEFAULT_CHANNELS));
+                channels = DEFAULT_CHANNELS;
+            } else {
+                bothDefaults = false;
+            }
+
+            if (bothDefaults)
+                logger.info("Both default rates and default channels used, will use maximum combined limit: rate " + MAX_RATE_LIMIT + " vs. channels " + MAX_CHANNELS_LIMIT);
+
+
+            if (!nInit(libLogLevelID, libLogTarget, rates, channels, bothDefaults ? MAX_RATE_LIMIT : 0, bothDefaults ? MAX_CHANNELS_LIMIT : 0)) {
                 throw new Exception("Initializing " + lib + " failed");
             }
         } catch (Throwable t) {
@@ -183,7 +240,7 @@ public final class SimpleMixerProvider extends MixerProvider {
     /**
      * Must be called only once!
      */
-    private static native boolean nInit(int logLevelID, @Nonnull String logTarget);
+    private static native boolean nInit(int logLevelID, @Nonnull String logTarget, @Nonnull int[] rates, @Nonnull int[] channels, int maxRateLimit, int maxChannelLimit);
 
     // count or -1 when error
     private static native int nGetMixerCnt();
