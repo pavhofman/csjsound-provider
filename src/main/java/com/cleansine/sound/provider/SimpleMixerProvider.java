@@ -22,11 +22,11 @@ public final class SimpleMixerProvider extends MixerProvider {
     private static final Map<SimpleMixerInfo, SimpleMixer> mixersByInfo = new ConcurrentHashMap<>();
 
     // defined in the native LIB
-    public static final int LIB_LOG_LEVEL_ERROR = 0;
-    public static final int LIB_LOG_LEVEL_WARN = 1;
-    public static final int LIB_LOG_LEVEL_INFO = 2;
-    public static final int LIB_LOG_LEVEL_DEBUG = 3;
-    public static final int LIB_LOG_LEVEL_TRACE = 4;
+    private static final int LIB_LOG_LEVEL_ERROR = 0;
+    private static final int LIB_LOG_LEVEL_WARN = 1;
+    private static final int LIB_LOG_LEVEL_INFO = 2;
+    private static final int LIB_LOG_LEVEL_DEBUG = 3;
+    private static final int LIB_LOG_LEVEL_TRACE = 4;
 
     static {
         isNativeLibLoaded = true;
