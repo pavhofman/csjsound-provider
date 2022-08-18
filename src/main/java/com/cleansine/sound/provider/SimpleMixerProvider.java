@@ -23,9 +23,10 @@ public final class SimpleMixerProvider extends MixerProvider {
 
     // defined in the native LIB
     public static final int LIB_LOG_LEVEL_ERROR = 0;
-    public static final int LIB_LOG_LEVEL_INFO = 1;
-    public static final int LIB_LOG_LEVEL_DEBUG = 2;
-    public static final int LIB_LOG_LEVEL_TRACE = 3;
+    public static final int LIB_LOG_LEVEL_WARN = 1;
+    public static final int LIB_LOG_LEVEL_INFO = 2;
+    public static final int LIB_LOG_LEVEL_DEBUG = 3;
+    public static final int LIB_LOG_LEVEL_TRACE = 4;
 
     static {
         isNativeLibLoaded = true;
@@ -40,6 +41,9 @@ public final class SimpleMixerProvider extends MixerProvider {
                 switch (libLogLevel) {
                     case "error":
                         libLogLevelID = LIB_LOG_LEVEL_ERROR;
+                        break;
+                    case "warn":
+                        libLogLevelID = LIB_LOG_LEVEL_WARN;
                         break;
                     case "info":
                         libLogLevelID = LIB_LOG_LEVEL_INFO;
@@ -63,6 +67,8 @@ public final class SimpleMixerProvider extends MixerProvider {
                     libLogLevelID = LIB_LOG_LEVEL_DEBUG;
                 else if (logger.isInfoEnabled())
                     libLogLevelID = LIB_LOG_LEVEL_INFO;
+                else if (logger.isWarnEnabled())
+                    libLogLevelID = LIB_LOG_LEVEL_WARN;
                 else
                     libLogLevelID = LIB_LOG_LEVEL_DEBUG;
             }
