@@ -40,6 +40,12 @@ public final class SimpleMixerProvider extends MixerProvider {
     private static final int MAX_RATE_LIMIT = 384000;
     private static final int MAX_CHANNELS_LIMIT = 8;
 
+    // using static arrays to make sure GC does not drop the arrays before native processes them
+    @SuppressWarnings("FieldCanBeLocal")
+    private static int[] rates;
+    @SuppressWarnings("FieldCanBeLocal")
+    private static int[] channels;
+
 
     private static int[] parsePropertyToIntArray(String propertyStr) throws NumberFormatException {
         String str = System.getProperty(propertyStr);
@@ -115,7 +121,7 @@ public final class SimpleMixerProvider extends MixerProvider {
 
 
             boolean bothDefaults = true;
-            int[] rates = parsePropertyToIntArray("csjsoundRates");
+            rates = parsePropertyToIntArray("csjsoundRates");
             if (rates == null) {
                 logger.info("No usable property csjsoundRates found, will use default rates: " + Arrays.toString(DEFAULT_RATES));
                 rates = DEFAULT_RATES;
@@ -123,7 +129,7 @@ public final class SimpleMixerProvider extends MixerProvider {
                 bothDefaults = false;
             }
 
-            int[] channels = parsePropertyToIntArray("csjsoundChannels");
+            channels = parsePropertyToIntArray("csjsoundChannels");
             if (channels == null) {
                 logger.info("No usable property csjsoundChannels found, will use default channels: " + Arrays.toString(DEFAULT_CHANNELS));
                 channels = DEFAULT_CHANNELS;
@@ -135,6 +141,7 @@ public final class SimpleMixerProvider extends MixerProvider {
                 logger.info("Both default rates and default channels used, will use maximum combined limit: rate " + MAX_RATE_LIMIT + " vs. channels " + MAX_CHANNELS_LIMIT);
 
 
+            logger.debug("Calling nInit with libLogTarget " + libLogTarget + ", rates: " + Arrays.toString(rates) + ", channels: " + Arrays.toString(channels));
             if (!nInit(libLogLevelID, libLogTarget, rates, channels, bothDefaults ? MAX_RATE_LIMIT : 0, bothDefaults ? MAX_CHANNELS_LIMIT : 0)) {
                 throw new Exception("Initializing " + lib + " failed");
             }
