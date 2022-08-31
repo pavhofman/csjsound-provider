@@ -9,7 +9,7 @@ import javax.sound.sampled.LineUnavailableException;
 import javax.sound.sampled.SourceDataLine;
 import java.util.Map;
 
-final class SimpleSourceDataLine extends SimpleDataLine implements SourceDataLine {
+class SimpleSourceDataLine extends SimpleDataLine implements SourceDataLine {
     private static final Logger logger = LoggerFactory.getLogger(SimpleSourceDataLine.class);
 
     // if a write operation occurred in stopped state
