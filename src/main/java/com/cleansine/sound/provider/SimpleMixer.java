@@ -29,10 +29,8 @@ final class SimpleMixer extends SimpleLine implements Mixer {
 
     @Nonnull
     private SimpleDataLineInfo[] initLineInfos(boolean isSource) {
-        SimpleDataLineInfo info = createDataLineInfo(isSource);
-        if (info != null) {
-            SimpleDataLineInfo[] infos = new SimpleDataLineInfo[1];
-            infos[0] = info;
+        SimpleDataLineInfo[] infos = createDataLineInfo(isSource);
+        if (infos != null) {
             return infos;
         } else {
             return new SimpleDataLineInfo[0];
@@ -55,7 +53,7 @@ final class SimpleMixer extends SimpleLine implements Mixer {
     }
 
     @Nullable
-    private SimpleDataLineInfo createDataLineInfo(boolean isSource) {
+    private SimpleDataLineInfo[] createDataLineInfo(boolean isSource) {
         Vector<AudioFormat> deviceFormats = new Vector<>();
         // filling the vector
         nGetFormats(getDeviceID(), isSource, deviceFormats);
@@ -113,7 +111,14 @@ final class SimpleMixer extends SimpleLine implements Mixer {
                     .distinct()
                     .toArray(AudioFormat[]::new);
             // using some minimum buffer size
-            return new SimpleDataLineInfo(isSource ? SourceDataLine.class : TargetDataLine.class, formats, 32, AudioSystem.NOT_SPECIFIED, hwFormatByFormat);
+            SimpleDataLineInfo[] infos = new SimpleDataLineInfo[(isSource ? 2 : 1)];
+            if (isSource) {
+                infos[0] = new SimpleDataLineInfo(SourceDataLine.class, formats, 32, AudioSystem.NOT_SPECIFIED, hwFormatByFormat);
+                infos[1] = new SimpleDataLineInfo(Clip.class, formats, 32, AudioSystem.NOT_SPECIFIED, hwFormatByFormat);
+            } else {
+                infos[0] = new SimpleDataLineInfo(TargetDataLine.class, formats, 32, AudioSystem.NOT_SPECIFIED, hwFormatByFormat);
+            }
+            return infos;
         } else
             return null;
     }
@@ -126,6 +131,9 @@ final class SimpleMixer extends SimpleLine implements Mixer {
 
             AudioFormat lineFormat = getLastFullySpecifiedFormat(existingInfo);
             if (lineFormat != null) {
+                if (existingInfo.getLineClass().isAssignableFrom(SimpleClip.class)) {
+                    return new SimpleClip(existingInfo, lineFormat, lineBufferSize, this, existingInfo.gethwFormatByFormat());
+                }
                 if (existingInfo.getLineClass().isAssignableFrom(SimpleSourceDataLine.class)) {
                     return new SimpleSourceDataLine(existingInfo, lineFormat, lineBufferSize, this, existingInfo.gethwFormatByFormat());
                 }
