@@ -30,7 +30,7 @@ public final class SimpleMixerProvider extends MixerProvider {
 
     // used if no property is specified
     private static final int[] DEFAULT_RATES = new int[]{44_100, 48_000, 88_200, 96_000, 176_400, 192_000, 352_800, 384_000,
-            705_600, 768_00, 1_411_200, 1_536_000};
+            705_600, 768_000, 1_411_200, 1_536_000};
 
     // used if no property is specified
     private static final int[] DEFAULT_CHANNELS = new int[]{1, 2, 4, 6, 8, 10, 12, 14, 16};
