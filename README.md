@@ -52,4 +52,4 @@ libLogTarget = System.getProperty("user.home") + "/csjsound-lib.log";
 
 **Notes:**
 - the ALSA-PCM implementation ignores this configuration and outputs to stdout at level defined in compile time
-- the current WASAPI implementation outputs to stdout even for `csjsoundLibLogFile=stderr`
+- the current WASAPI excl. implementation outputs to stdout even for `csjsoundLibLogFile=stderr`
