@@ -1,5 +1,5 @@
 # csjsound-provider
-SPI javax.sound.sampled.spi.MixerProvider for csjsound dynamic libraries. Available native implementations:
+SPI javax.sound.sampled.spi.MixerProvider for CleanSine javasound dynamic libraries. Available native implementations:
 
 * WASAPI exclusive https://github.com/pavhofman/csjsound-wasapi
 * Linux ALSA PCM devices (as listed in aplay -L) https://github.com/pavhofman/csjsound-alsapcm
