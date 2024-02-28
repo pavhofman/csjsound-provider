@@ -220,6 +220,10 @@ abstract class SimpleDataLine extends SimpleLine implements DataLine {
     void doOpen(final AudioFormat hwFormat, int bufferBytes) throws LineUnavailableException {
         if (!isPCMEncoding(hwFormat))
             throw new IllegalArgumentException("Unsupported encoding " + hwFormat.getEncoding() + ", only PCM is supported");
+        if (hwFormat.getFrameSize() <= 0)
+            throw new IllegalArgumentException("Unsupported format frame size " + hwFormat.getFrameSize());
+        if (hwFormat.getFrameRate() <= 0)
+            throw new IllegalArgumentException("Unsupported format frame rate " + hwFormat.getFrameRate());
 
         if (bufferBytes <= AudioSystem.NOT_SPECIFIED) {
             // setting default value
