@@ -244,7 +244,7 @@ abstract class SimpleDataLine extends SimpleLine implements DataLine {
 
         this.bufferBytes = SimpleMixer.nGetBufferBytes(nativePtr, isSource);
         if (this.bufferBytes < 1) {
-            // this is an error!
+            logger.warn("Native call nGetBufferBytes returned " + this.bufferBytes + "!");
             this.bufferBytes = bufferBytes;
         }
         // 1/8 of buffer time
